@@ -12,12 +12,15 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace ArtificialLifeSim.Renderer {
     class SimWindow : GameWindow {
-        public int ZoomState = 1;
+        public float ZoomState = 1;
         public float XScale = 1;
         public float YScale = 1;
         public int RefSizeX = 1024;
         public int RefSizeY = 1024;
         public bool IsTargetMode = false;
+
+        const float ZoomSpeed = 3f;
+        const float MoveSpeed = 4f;
 
         public Vector2 ViewPosition = new Vector2(0, 0);
         public SimWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) 
@@ -32,18 +35,18 @@ namespace ArtificialLifeSim.Renderer {
                 Close();
 
             if (KeyboardState.IsKeyDown(Keys.Q))
-                ZoomState+=1;
+                ZoomState+= ZoomSpeed * (float)args.Time;
             if (KeyboardState.IsKeyDown(Keys.E))
-                ZoomState-=1;
+                ZoomState-= ZoomSpeed * (float)args.Time;
                 
             if (KeyboardState.IsKeyDown(Keys.A))
-                ViewPosition.X -= 0.3f;
+                ViewPosition.X -= MoveSpeed * (float)args.Time;
             if (KeyboardState.IsKeyDown(Keys.D))
-                ViewPosition.X += 0.3f;
+                ViewPosition.X += MoveSpeed * (float)args.Time;
             if (KeyboardState.IsKeyDown(Keys.W))
-                ViewPosition.Y += 0.3f;
+                ViewPosition.Y += MoveSpeed * (float)args.Time;
             if (KeyboardState.IsKeyDown(Keys.S))
-                ViewPosition.Y -= 0.3f;
+                ViewPosition.Y -= MoveSpeed * (float)args.Time;
 
             if (KeyboardState.IsKeyPressed(Keys.D1))
                 IsTargetMode = !IsTargetMode;

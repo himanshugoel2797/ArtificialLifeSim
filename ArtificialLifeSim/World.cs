@@ -13,16 +13,19 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
+using ArtificialLifeSim.Physics;
 
 namespace ArtificialLifeSim
 {
     class World
     {
-        public int Side { get; private set; }
-        public SpatialList<Organism> Organisms { get; set; }
-        public ConcurrentQueue<Organism> NewOrganisms { get; set; }
-        public SpatialList<Food> Food { get; set; }
+        public const float NodeRadius = 0.1f;
 
+        public int Side { get; private set; }
+        public List<Organism> Organisms { get; set; }
+        public ConcurrentQueue<Organism> NewOrganisms { get; set; }
+        public SpatialGrid<Food> Food { get; set; }
+        public PhysicsWorld Physics { get; set; }
         public OrganismFactory OrganismFactory { get; set; }
 
         public float BirthRate { get; set; } = 0.01f;   // Probability of spontaneous unsourced birth
@@ -59,14 +62,20 @@ namespace ArtificialLifeSim
 
             Side = side;
             OrganismFactory = new OrganismFactory(Side);
-            Organisms = new SpatialList<Organism>(side, side: 32);
+            Physics = new PhysicsWorld(Side);
+            Organisms = new List<Organism>();
             NewOrganisms = new ConcurrentQueue<Organism>();
-            Food = new SpatialList<Food>(side, side: 32);
+            Food = new SpatialGrid<Food>(side, side: 32);
             BirthRate = birthRate;
             FoodRate = foodRate;
 
             for (int i = 0; i < initialOrganisms; i++)
-                Organisms.Add(OrganismFactory.CreateOrganism());
+            {
+                var o = OrganismFactory.CreateOrganism();
+                Organisms.Add(o);
+                Physics.AddEntity(o.Body);
+            }
+
             for (int i = 0; i < initialFood; i++)
                 Food.Add(new Food(Utils.RandomVector2(0, side), (float)Utils.RandomDouble(0.01, 1.0)));
 
@@ -131,21 +140,6 @@ namespace ArtificialLifeSim
             return null;
         }
 
-        public void ProcessCollisions()
-        {
-            foreach (Organism organism in Organisms)
-            {
-                var collisionTargets = Organisms.SearchNeighborhood(organism, organism.Position, 16);
-                foreach (Organism otherOrganism in collisionTargets)
-                {
-                    if ((organism.Position - otherOrganism.Position).LengthSquared <= MathF.Pow(organism.Radius + otherOrganism.Radius, 2))
-                    {
-                        Physics.Hull.Collide(organism.Hull, otherOrganism.Hull);
-                    }
-                }
-            }
-        }
-
         public void Run()
         {
             // Generate food
@@ -161,22 +155,28 @@ namespace ArtificialLifeSim
                 Organisms.Add(OrganismFactory.CreateOrganism());
 
             // Update organisms
-            Organisms.ParallelForEach((o) => o.Update(Tick));
+            Parallel.ForEach(Organisms, (o) => o.Update(Tick));
 
-            // TODO: Process attacks
             // Process food consumption
             Food.RemoveAll(x => x.Energy == 0);
-            Organisms.RemoveAll(x => x.Energy <= 0);
 
-            Organisms.ParallelForEach((o) => o.UpdatePhysics(Tick, 0.01));
+            //Remove dead organisms
+            Organisms.RemoveAll(x =>
+            {
+                var cond = x.Energy <= 0;
+                if (cond) Physics.RemoveEntity(x.Body);
+                return cond;
+            });
 
-            //Update spatial binning for organisms
-            Organisms.RebuildAll();
-            ProcessCollisions();
+            //Run physics step
+            Physics.Update();
 
             // Add new organisms
             foreach (var o in NewOrganisms)
+            {
                 Organisms.Add(o);
+                Physics.AddEntity(o.Body);
+            }
             NewOrganisms.Clear();
 
             // Update tick

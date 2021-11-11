@@ -9,8 +9,10 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using Matrix22 = OpenTK.Mathematics.Matrix2;
 
-namespace ArtificialLifeSim.Renderer {
-    class PolygonRenderer : IDisposable{
+namespace ArtificialLifeSim.Renderer
+{
+    class PolygonRenderer : IDisposable
+    {
 
         const int BufferLen = 102400 * 32 * 4 * sizeof(float);
 
@@ -22,7 +24,8 @@ namespace ArtificialLifeSim.Renderer {
         int pointCnt = 0;
         private bool disposedValue;
 
-        public PolygonRenderer() {
+        public PolygonRenderer()
+        {
 
             GL.Enable(EnableCap.LineSmooth);
             GL.LineWidth(5.0f);
@@ -33,7 +36,7 @@ namespace ArtificialLifeSim.Renderer {
             unsafe
             {
                 var ptr = GL.MapNamedBufferRange(vertexBuffer, IntPtr.Zero, 3 * BufferLen, MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit | MapBufferAccessMask.MapCoherentBit);
-                vertexBufferPtr = new IntPtr[] {(IntPtr)ptr, (IntPtr)ptr + BufferLen, (IntPtr)ptr + 2 * BufferLen};
+                vertexBufferPtr = new IntPtr[] { (IntPtr)ptr, (IntPtr)ptr + BufferLen, (IntPtr)ptr + 2 * BufferLen };
                 vbuf_idx = 0;
                 curVbufPtr = vertexBufferPtr[vbuf_idx];
             }
@@ -44,26 +47,22 @@ namespace ArtificialLifeSim.Renderer {
             GL.ProgramUniform2f(shader.ProgramID, 4, v, w);
         }
 
-        public void Record(Vector2 b_pos, Vector2[] position, float radius){
-            
-            unsafe {
-                for (int i = 0; i < position.Length; i++)
-                {
-                    var tmp = position[i];
-                    var ptr = (float*)curVbufPtr;
-                    ptr[0] = b_pos.X + tmp.X;
-                    ptr[1] = b_pos.Y + tmp.Y;
-
-                    tmp = position[(i + 1) % position.Length];
-                    ptr[2] = b_pos.X + tmp.X;
-                    ptr[3] = b_pos.Y + tmp.Y;
-                    curVbufPtr += 4 * sizeof(float);
-                    pointCnt++;
-                }
+        public void Record(Vector2 p0, Vector2 p1)
+        {
+            unsafe
+            {
+                var ptr = (float*)curVbufPtr;
+                ptr[0] = p0.X;
+                ptr[1] = p0.Y;
+                ptr[2] = p1.X;
+                ptr[3] = p1.Y;
+                curVbufPtr += 4 * sizeof(float);
+                pointCnt++;
             }
         }
 
-        public void Render(){
+        public void Render()
+        {
             shader.Activate();
             GL.BindBufferRange(BufferTargetARB.ShaderStorageBuffer, 0, vertexBuffer, (IntPtr)(vbuf_idx * BufferLen), BufferLen);
             GL.DrawArrays(PrimitiveType.Lines, 0, pointCnt * 2);
@@ -73,12 +72,14 @@ namespace ArtificialLifeSim.Renderer {
             curVbufPtr = vertexBufferPtr[vbuf_idx];
         }
 
-        public void UpdateView(float zoom, Vector2 center){
+        public void UpdateView(float zoom, Vector2 center)
+        {
             GL.ProgramUniform1f(shader.ProgramID, 1, zoom);
             GL.ProgramUniform2f(shader.ProgramID, 2, center.X, center.Y);
         }
 
-        public void UpdateColor(Vector3 color){
+        public void UpdateColor(Vector3 color)
+        {
             GL.ProgramUniform3f(shader.ProgramID, 3, color.X, color.Y, color.Z);
         }
 

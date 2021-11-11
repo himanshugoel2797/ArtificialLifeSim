@@ -15,7 +15,7 @@ namespace ArtificialLifeSim
         public float Energy = 0.1f;
 
         public Food(Vector2 position, float energy) {
-            Radius = (float)Utils.RandomDouble(0.05f, 1.0f);
+            Radius = 0.5f;
             Position = position;
             Energy = 0.9f;//energy;
         }

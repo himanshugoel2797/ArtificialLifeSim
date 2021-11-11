@@ -6,7 +6,7 @@ namespace ArtificialLifeSim
     {
         static void Main(string[] args)
         {
-            World world = new World(1000, 0.01f, 0.01f, 100, 100000);
+            World world = new World(100, 0.001f, 0.001f, 10, 100);
             world.Run();
         }
     }
