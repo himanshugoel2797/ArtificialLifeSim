@@ -30,6 +30,10 @@ namespace ArtificialLifeSim.Chromosomes
         public BodyNodeType Type;
         public Vector2 Position;
         public bool Active;
+        public float StartFriction;
+        public float EndFriction;
+        public float Period;
+        public float TimeOffset;
 
         public BodyNode() { }
         public BodyNode(BodyNode bodyNode)
@@ -44,9 +48,12 @@ namespace ArtificialLifeSim.Chromosomes
         public BodyLinkType Type;
         public int Node0_Index;
         public int Node1_Index;
-        public float Length;
         public float Stiffness;
         public bool Active;
+        public float StartLength;
+        public float EndLength;
+        public float Period;
+        public float TimeOffset;
     }
 
     class BodyChromosome : IChromosome
@@ -74,6 +81,10 @@ namespace ArtificialLifeSim.Chromosomes
                     Position = node.Position,
                     PreviousPosition = node.Position,// + Utils.RandomVector2(-0.01, 0.01),
                     Radius = World.NodeRadius,
+                    StartFriction = node.StartFriction,
+                    EndFriction = node.EndFriction,
+                    TimeOffset = node.TimeOffset,
+                    Period = node.Period,
                 };
             }
 
@@ -94,7 +105,10 @@ namespace ArtificialLifeSim.Chromosomes
                 {
                     Node0 = nodes[n0_idx],
                     Node1 = nodes[n1_idx],
-                    Length = link.Length,
+                    StartLength = link.StartLength,
+                    EndLength = link.EndLength,
+                    Period = link.Period,
+                    TimeOffset = link.TimeOffset,
                     Stiffness = link.Stiffness,
                     Type = link.Type,
                 };

@@ -46,13 +46,13 @@ namespace ArtificialLifeSim.Renderer
         {
             foreach (var stick in organism.Body.Sticks)
                 if (stick.Type == BodyLinkType.None)
-                    StickRenderer.Record(stick.Node0.Position, stick.Node1.Position);
+                    StickRenderer.Record(stick.Node0.Position, stick.Node1.Position, 0.1f * stick.Stiffness + 0.05f);
                 else if (stick.Type == BodyLinkType.Muscle)
-                    MuscleRenderer.Record(stick.Node0.Position, stick.Node1.Position);
+                    MuscleRenderer.Record(stick.Node0.Position, stick.Node1.Position, 0.1f * stick.Stiffness + 0.05f);
 
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Mouth).ToList().ForEach(x => MouthRenderer.Record(x.Position, World.NodeRadius));
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Eye).ToList().ForEach(x => EyeRenderer.Record(x.Position, World.NodeRadius));
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Empty).ToList().ForEach(x => EmptyRenderer.Record(x.Position, World.NodeRadius));
+            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Mouth).ToList().ForEach(x => MouthRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
+            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Eye).ToList().ForEach(x => EyeRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
+            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Empty).ToList().ForEach(x => EmptyRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
         }
 
         public void Render()

@@ -12,6 +12,8 @@ layout(location = 1) uniform float zoom;
 layout(location = 2) uniform vec2 offset;
 layout(location = 4) uniform vec2 size_scale;
 
+out float opacity;
+
 void main() {
     vec2 pos = position[gl_InstanceID].xy;
     vec2 vert = geom[gl_VertexID];
@@ -19,5 +21,6 @@ void main() {
 
     pos.x *=  size_scale.y / size_scale.x;
 
+    opacity = position[gl_InstanceID].w;
     gl_Position = vec4(pos, 0.0, 1.0);
 }

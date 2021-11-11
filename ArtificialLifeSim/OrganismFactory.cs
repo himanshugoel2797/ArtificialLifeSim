@@ -10,23 +10,21 @@ namespace ArtificialLifeSim
     internal class OrganismFactory
     {
         public const int ChromosomeCount = 1;
-
-        float WorldSide;
+        World world;
 
         BodyChromosomeFactory BodyChromosomeFactory { get; set; }
 
-        public OrganismFactory(float worldSide)
+        public OrganismFactory(World w)
         {
-            BodyChromosomeFactory = new BodyChromosomeFactory(worldSide);
-            WorldSide = worldSide;
+            world = w;
+            BodyChromosomeFactory = new BodyChromosomeFactory(w.Side);
         }
 
         public Organism CreateOrganism()
         {
             var bodyChromosome = BodyChromosomeFactory.CreateChromosome();
 
-            Organism organism = new Organism();
-            organism.Position = Utils.RandomVector2(0, WorldSide);
+            Organism organism = new Organism(world);
             organism.BodyChromosome = bodyChromosome;
             bodyChromosome.Apply(organism);
             
@@ -43,8 +41,7 @@ namespace ArtificialLifeSim
             var bodyChromosome = BodyChromosomeFactory.Mate(o0.BodyChromosome, o1.BodyChromosome);
             BodyChromosomeFactory.Mutate(bodyChromosome);
 
-            Organism organism = new Organism();
-            //TODO: organism.Position
+            Organism organism = new Organism(world);
             organism.BodyChromosome = bodyChromosome;
             bodyChromosome.Apply(organism);
             organism.Setup();

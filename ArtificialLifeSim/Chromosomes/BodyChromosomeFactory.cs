@@ -9,7 +9,7 @@ namespace ArtificialLifeSim.Chromosomes
 {
     internal class BodyChromosomeFactory : IChromosomeFactory<BodyChromosome>
     {
-        public const int MaxVertexCount = 8;
+        public const int MaxVertexCount = 32;
         public const float MutationChance = 0.05f;
         public const float MutationSize = 0.01f;
         public const float MaxBodySize = 4;
@@ -22,7 +22,7 @@ namespace ArtificialLifeSim.Chromosomes
 
         public BodyChromosome CreateChromosome()
         {
-            int nodeCount = Utils.RandomInt(2, MaxVertexCount);
+            int nodeCount = Utils.RandomInt(2, 5);
             int linkCount = Utils.RandomInt(1, (nodeCount * (nodeCount - 1)) / 2);
             BodyNode[] nodes = new BodyNode[nodeCount];
             BodyLink[] links = new BodyLink[linkCount];
@@ -34,6 +34,10 @@ namespace ArtificialLifeSim.Chromosomes
                     Position = Utils.RandomVector2(-MaxBodySize * 0.5 - World.NodeRadius, MaxBodySize * 0.5 - World.NodeRadius) + body_pos,
                     Type = (BodyNodeType)Utils.RandomInt(0, (int)BodyNodeType.MaxValue),
                     Active = false,
+                    StartFriction = (float)Utils.RandomDouble(0, 1),
+                    EndFriction = (float)Utils.RandomDouble(0, 1),
+                    Period = (float)Utils.RandomDouble(0, 1),
+                    TimeOffset = (float)Utils.RandomDouble(0, Math.PI),
                 };
             for (int i = 0; i < links.Length; i++)
             {
@@ -43,9 +47,11 @@ namespace ArtificialLifeSim.Chromosomes
                     Node1_Index = Utils.RandomInt(0, nodeCount),
                     Active = Utils.RandomBool(),
                     Type = (BodyLinkType)Utils.RandomInt(0, (int)BodyLinkType.MaxValue),
+                    Period = (float)Utils.RandomDouble(0, 1),
+                    TimeOffset = (float)Utils.RandomDouble(0, Math.PI),
                 };
 
-                links[i].Stiffness = (links[i].Type == BodyLinkType.Muscle) ? 1.0f : 1.0f;// (float)Utils.RandomDouble(0, 1.0f),
+                links[i].Stiffness = (float)Utils.RandomDouble(0, 1.0f);
                 while (links[i].Node1_Index == links[i].Node0_Index)
                     links[i].Node1_Index = Utils.RandomInt(0, nodeCount);
 
@@ -56,7 +62,8 @@ namespace ArtificialLifeSim.Chromosomes
                     links[i].Node0_Index = links[i].Node1_Index;
                     links[i].Node1_Index = tmp;
                 }
-                links[i].Length = (nodes[links[i].Node0_Index].Position - nodes[links[i].Node1_Index].Position).Length;
+                links[i].StartLength = (nodes[links[i].Node0_Index].Position - nodes[links[i].Node1_Index].Position).Length;
+                links[i].EndLength = links[i].StartLength + (float)Utils.RandomDouble(-links[i].StartLength + World.NodeRadius, links[i].StartLength);
             }
 
             //Turn off duplicate links

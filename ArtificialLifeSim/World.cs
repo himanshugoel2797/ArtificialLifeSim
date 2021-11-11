@@ -19,7 +19,7 @@ namespace ArtificialLifeSim
 {
     class World
     {
-        public const float NodeRadius = 0.1f;
+        public const float NodeRadius = 0.5f;
 
         public int Side { get; private set; }
         public List<Organism> Organisms { get; set; }
@@ -28,17 +28,12 @@ namespace ArtificialLifeSim
         public PhysicsWorld Physics { get; set; }
         public OrganismFactory OrganismFactory { get; set; }
 
-        public float BirthRate { get; set; } = 0.01f;   // Probability of spontaneous unsourced birth
-        public int MaxPopulation { get; set; } = 1000;
-        public float FoodRate { get; set; }
         public double Tick { get; set; }
         public SimWindow Window { get; set; }
         public FoodRenderer FoodRenderer { get; set; }
         public OrganismRenderer OrganismRenderer { get; set; }
 
-        public int MaxFood { get; set; } = 10000;
-
-        public World(int side, float birthRate, float foodRate, int initialOrganisms, int initialFood)
+        public World(int side, int initialOrganisms, int initialFood)
         {
             #region Renderer Setup
             var nativeWindowSettings = new NativeWindowSettings()
@@ -55,19 +50,18 @@ namespace ArtificialLifeSim
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.ClearColor(0.6f, 0.6f, 0.6f, 0.0f);
             GL.BindVertexArray(GL.GenVertexArray());
+            GL.LineWidth(50);
 
             FoodRenderer = new FoodRenderer();
             OrganismRenderer = new OrganismRenderer();
             #endregion
 
             Side = side;
-            OrganismFactory = new OrganismFactory(Side);
+            OrganismFactory = new OrganismFactory(this);
             Physics = new PhysicsWorld(Side);
             Organisms = new List<Organism>();
             NewOrganisms = new ConcurrentQueue<Organism>();
             Food = new SpatialGrid<Food>(side, side: 32);
-            BirthRate = birthRate;
-            FoodRate = foodRate;
 
             for (int i = 0; i < initialOrganisms; i++)
             {
@@ -98,7 +92,6 @@ namespace ArtificialLifeSim
             Window.SwapBuffers();
         }
 
-        float PreviousHighestAge = 0;
         private void Update(FrameEventArgs obj)
         {
             Run();
@@ -120,7 +113,6 @@ namespace ArtificialLifeSim
             OrganismRenderer.UpdateSizeScale(Window.XScale, Window.YScale);
 
             //Window.Title = $"Health: {Organism.HighestHealth:F3}, Energy: {Organism.HighestEnergy:F3}, Age: {PreviousHighestAge:F3}, Reproduction Cost: {Organism.HighestParameters.EnergyConsumptionForReproduction:F3}, Reproduction Level: {Organism.HighestParameters.NecessaryEnergyLevelForReproduction:F3}, Reproduction Age: {Organism.HighestParameters.NecessaryEnergyDurationForReproduction:F3}, Asexual Reproduction Chance: {Organism.HighestParameters.AsexualReproductionChance:F3}";
-            //PreviousHighestAge = Organism.HighestAge;
         }
 
         public void AddOrganism(Organism organism)
@@ -128,32 +120,18 @@ namespace ArtificialLifeSim
             NewOrganisms.Enqueue(organism);
         }
 
-        public Organism[] GetOrganismsInContext(Organism o, Vector2 position)
+        public Node[] GetOrganismsInContext(Organism o, Node n)
         {
-            //return Organisms.SearchNeighborhood(o, position, MathF.Pow(o.Radius + MathF.Sqrt(o.Parameters.VisionRangeSquared), 2));
-            return null;
+            return Physics.Nodes.SearchNeighborhood(n, n.Position, o.VisionRange);
         }
 
-        public Food[] GetFoodInContext(Organism o, Vector2 position, bool fromEye = true)
+        public Food[] GetFoodInContext(Organism o, Vector2 position)
         {
-            //return Food.SearchNeighborhood(null, position, !fromEye ? o.Hull.RadiusSquared : MathF.Pow(MathF.Sqrt(o.Hull.RadiusSquared) + MathF.Sqrt(o.Parameters.VisionRangeSquared), 2));
-            return null;
+            return Food.SearchNeighborhood(null, position, o.VisionRange + NodeRadius);
         }
 
         public void Run()
         {
-            // Generate food
-            if (Food.Count < MaxFood)
-            {
-                int n = Utils.RandomInt(1, 10);
-                for (int i = 0; i < n; i++)
-                    if (FoodRate > Utils.RandomDouble())
-                        Food.Add(new Food(Utils.RandomVector2(0, Side), (float)Utils.RandomDouble(0.01, 1)));
-            }
-
-            if (Utils.RandomDouble() < BirthRate && Organisms.Count < MaxPopulation)
-                Organisms.Add(OrganismFactory.CreateOrganism());
-
             // Update organisms
             Parallel.ForEach(Organisms, (o) => o.Update(Tick));
 
@@ -169,15 +147,7 @@ namespace ArtificialLifeSim
             });
 
             //Run physics step
-            Physics.Update();
-
-            // Add new organisms
-            foreach (var o in NewOrganisms)
-            {
-                Organisms.Add(o);
-                Physics.AddEntity(o.Body);
-            }
-            NewOrganisms.Clear();
+            Physics.Update((float)Tick);
 
             // Update tick
             Tick += 0.01;

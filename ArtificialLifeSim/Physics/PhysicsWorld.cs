@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ArtificialLifeSim.Physics
@@ -13,6 +14,7 @@ namespace ArtificialLifeSim.Physics
         const float CollisionInelasticity = 0.99f;
         const float MotionDampingFactor = 0.99f;
 
+        ulong entity_id = 0;
         int worldSide;
         public SpatialGrid<Node> Nodes { get; set; }
         public LinkedList<Stick> Sticks { get; set; }
@@ -20,12 +22,19 @@ namespace ArtificialLifeSim.Physics
         public PhysicsWorld(int WorldSide)
         {
             worldSide = WorldSide;
-            Nodes = new SpatialGrid<Node>(WorldSide, itemRadius: World.NodeRadius);
+            int gridSide = WorldSide / 10;
+            Nodes = new SpatialGrid<Node>(WorldSide, side: gridSide, itemRadius: World.NodeRadius);
             Sticks = new LinkedList<Stick>();
         }
 
         public void AddEntity(Entity e)
         {
+            var ent_id = Interlocked.Increment(ref entity_id);
+            foreach (var node in e.Nodes)
+                node.EntityID = ent_id;
+            foreach (var stick in e.Sticks)
+                stick.EntityID = ent_id;
+
             lock (Nodes) Nodes.AddRange(e.Nodes);
             lock (Sticks)
                 foreach (var stick in e.Sticks)
@@ -56,13 +65,14 @@ namespace ArtificialLifeSim.Physics
             }
         }
 
-        public void Update()
+        public void Update(float time)
         {
             //Update point positions
             lock (Nodes)
                 Nodes.ParallelForEach(node =>
                 {
-                    var vel = (node.Position - node.PreviousPosition) * MotionDampingFactor;
+                    node.CurrentFriction = Utils.Sin(time, node.Period, node.TimeOffset, node.StartFriction, node.EndFriction);
+                    var vel = (node.Position - node.PreviousPosition) * MotionDampingFactor * node.CurrentFriction;
                     node.PreviousPosition = node.Position;
                     node.Position += vel;
                 });
@@ -75,6 +85,8 @@ namespace ArtificialLifeSim.Physics
                     {
                         var diff = (stick.Node0.Position - stick.Node1.Position);
                         var curStickLenSq = diff.Length;
+                        stick.Length = stick.StartLength;
+                        if (stick.Type == Chromosomes.BodyLinkType.Muscle) stick.Length = Utils.Sin(time, stick.Period, stick.TimeOffset, stick.StartLength, stick.EndLength);
                         var err = (stick.Length - curStickLenSq) / curStickLenSq * stick.Stiffness;
 
                         var offset = diff * err * 0.5f;
@@ -88,15 +100,19 @@ namespace ArtificialLifeSim.Physics
 
                 //Resolve collisions
                 lock (Nodes)
+                {
                     foreach (Node node in Nodes)
                     {
                         //Check for circle vs circle collisions
                         var neighborhood = Nodes.SearchNeighborhood(node, node.Position, node.Radius);
 
                         //Neighborhood search should have only returned collisions
-                        Parallel.ForEach(neighborhood, node1 =>
+                        //Parallel.ForEach(neighborhood, node1 =>
+                        foreach (var node1 in neighborhood)
                         //if ((node1.Position - node.Position).Length <= node1.Radius + node.Radius)
                         {
+                            if (node1.EntityID == node.EntityID) continue;
+
                             //Resolve the collision
                             var diff0 = (node.Position - node.PreviousPosition) * CollisionInelasticity;
                             var diff1 = (node1.Position - node1.PreviousPosition) * CollisionInelasticity;
@@ -112,8 +128,11 @@ namespace ArtificialLifeSim.Physics
                                 node1.PreviousPosition = node1.Position;
                                 node1.Position -= diff0;
                             }
-                        });
+                        }
+                    }
 
+                    Nodes.ParallelForEach((node) =>
+                    {
                         Vector2 diff0 = node.Position - node.PreviousPosition;
                         if (node.Position.X <= World.NodeRadius | node.Position.X >= worldSide - World.NodeRadius)
                         {
@@ -125,7 +144,8 @@ namespace ArtificialLifeSim.Physics
                             node.PreviousPosition = new Vector2(node.PreviousPosition.X, node.Position.Y);
                             node.Position = new Vector2(node.Position.X, node.Position.Y - diff0.Y);
                         }
-                    }
+                    });
+                }
             }
 
             Nodes.RebuildAll();

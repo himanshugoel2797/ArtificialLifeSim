@@ -64,12 +64,13 @@ namespace ArtificialLifeSim.Renderer {
             GL.ProgramUniform2f(shader.ProgramID, 4, v, w);
         }
 
-        public void Record(Vector2 position, float radius){
+        public void Record(Vector2 position, float radius, float opacity = 0.5f){
             unsafe {
                 var ptr = (float*)curVbufPtr;
                 ptr[0] = position.X;
                 ptr[1] = position.Y;
                 ptr[2] = radius;
+                ptr[3] = opacity;
                 curVbufPtr += 4 * sizeof(float);
             }
             pointCnt++;

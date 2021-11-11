@@ -16,7 +16,7 @@ namespace ArtificialLifeSim
         public Vector2 A, B, C;
     }
 
-    class Utils
+    static class Utils
     {
         static int seed = 0;
         static ThreadLocal<Random> random = new ThreadLocal<Random>(() => new Random(Interlocked.Increment(ref seed)));
@@ -41,6 +41,11 @@ namespace ArtificialLifeSim
             }
         }
 
+        public static float Sin(float time, float period, float offset, float start_val, float end_val)
+        {
+            return (start_val - end_val) * MathF.Abs(MathF.Sin(time * period + offset)) + end_val;
+        }
+
         public static Triangle GenerateTriangle(double minX = 0, double minY = 0, double maxX = 1, double maxY = 1)
         {
             double x1 = RandomDouble(minX, maxX);
@@ -56,6 +61,16 @@ namespace ArtificialLifeSim
                 B = new Vector2((float)x2, (float)y2),
                 C = new Vector2((float)x3, (float)y3)
             };
+        }
+
+        public static Vector2 PerpendicularClockwise(this Vector2 vector2)
+        {
+            return new Vector2(vector2.Y, -vector2.X);
+        }
+
+        public static Vector2 PerpendicularCounterClockwise(this Vector2 vector2)
+        {
+            return new Vector2(-vector2.Y, vector2.X);
         }
 
         public static Triangle[] Triangulate(Vector2[] points)

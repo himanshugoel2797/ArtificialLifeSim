@@ -14,5 +14,12 @@ namespace ArtificialLifeSim.Physics
         public Vector2 PreviousPosition { get; set; }
         public float Radius { get; set; } = 0.1f;
         public BodyNodeType Type { get; set; }
+
+        public float StartFriction { get; set; }
+        public float EndFriction { get; set; }
+        public float CurrentFriction { get; set; }
+        public float Period { get; set; }
+        public float TimeOffset { get; set; }
+        public ulong EntityID { get; set; }
     }
 }

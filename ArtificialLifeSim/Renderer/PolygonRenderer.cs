@@ -14,7 +14,7 @@ namespace ArtificialLifeSim.Renderer
     class PolygonRenderer : IDisposable
     {
 
-        const int BufferLen = 102400 * 32 * 4 * sizeof(float);
+        const int BufferLen = 102400 * 32 * 12 * sizeof(float);
 
         Shader shader;
         BufferHandle vertexBuffer;
@@ -47,16 +47,35 @@ namespace ArtificialLifeSim.Renderer
             GL.ProgramUniform2f(shader.ProgramID, 4, v, w);
         }
 
-        public void Record(Vector2 p0, Vector2 p1)
+        public void Record(Vector2 p0, Vector2 p1, float width = 0.1f)
         {
+            var dir = Vector2.Normalize(p1 - p0);
+            p0 += dir * World.NodeRadius * 0.5f;
+            p1 -= dir * World.NodeRadius * 0.5f;
+
+            var d0 = dir.PerpendicularClockwise();
+            var c0 = p0 + d0 * width;
+            var c1 = p0 - d0 * width;
+            var c2 = p1 + d0 * width;
+            var c3 = p1 - d0 * width;
+
             unsafe
             {
                 var ptr = (float*)curVbufPtr;
-                ptr[0] = p0.X;
-                ptr[1] = p0.Y;
-                ptr[2] = p1.X;
-                ptr[3] = p1.Y;
-                curVbufPtr += 4 * sizeof(float);
+                ptr[0] = c0.X;
+                ptr[1] = c0.Y;
+                ptr[2] = c1.X;
+                ptr[3] = c1.Y;
+                ptr[4] = c2.X;
+                ptr[5] = c2.Y;
+                
+                ptr[6] = c2.X;
+                ptr[7] = c2.Y;
+                ptr[8] = c3.X;
+                ptr[9] = c3.Y;
+                ptr[10] = c1.X;
+                ptr[11] = c1.Y;
+                curVbufPtr += 12 * sizeof(float);
                 pointCnt++;
             }
         }
@@ -65,7 +84,7 @@ namespace ArtificialLifeSim.Renderer
         {
             shader.Activate();
             GL.BindBufferRange(BufferTargetARB.ShaderStorageBuffer, 0, vertexBuffer, (IntPtr)(vbuf_idx * BufferLen), BufferLen);
-            GL.DrawArrays(PrimitiveType.Lines, 0, pointCnt * 2);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, pointCnt * 6);
 
             pointCnt = 0;
             vbuf_idx = (vbuf_idx + 1) % 3;
