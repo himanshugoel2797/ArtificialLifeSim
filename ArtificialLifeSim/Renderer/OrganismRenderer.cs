@@ -6,9 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
+using ArtificialLifeSim.Features;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace ArtificialLifeSim.Renderer
 {
@@ -50,15 +51,13 @@ namespace ArtificialLifeSim.Renderer
 
         public void Record(Organism organism)
         {
-            PolygonRenderer.Record(organism.Position, organism.Body.Vertices.ToArray(), 0.1f);
+            //PolygonRenderer.Record(organism.Position, organism.Body.Nodes.Select(a => a.RotatedPosition).ToArray(), 0.1f);
 
-            organism.Body.Vertices.Zip(organism.Body.VertexTypes).Where(x => x.Item2 == BodyVertexType.Mouth).ToList().ForEach(x => MouthRenderer.Record(organism.Position + x.Item1, organism.Parameters.VisionRange));
-            organism.Body.Vertices.Zip(organism.Body.VertexTypes).Where(x => x.Item2 == BodyVertexType.Eye).ToList().ForEach(x => EyeRenderer.Record(organism.Position + x.Item1, organism.Parameters.VisionRange));
-            organism.Body.Vertices.Zip(organism.Body.VertexTypes).Where(x => x.Item2 == BodyVertexType.Muscle).ToList().ForEach(x => MuscleRenderer.Record(organism.Position + x.Item1, 0.1f));
-            organism.Body.Vertices.Zip(organism.Body.VertexTypes).Where(x => x.Item2 == BodyVertexType.Rotator).ToList().ForEach(x => RotatorRenderer.Record(organism.Position + x.Item1, 0.1f));
-            organism.Body.Vertices.Zip(organism.Body.VertexTypes).Where(x => x.Item2 == BodyVertexType.None).ToList().ForEach(x => EmptyRenderer.Record(organism.Position + x.Item1, 0.05f));
-            HullRenderer.Record(organism.Hull.Position, organism.Hull.Radius);
-
+            organism.Body.Nodes.Where(x => x.VertexType == BodyVertexType.Mouth).ToList().ForEach(x => MouthRenderer.Record(organism.Position + x.RotatedPosition, 0.1f));
+            organism.Body.Nodes.Where(x => x.VertexType == BodyVertexType.Eye).ToList().ForEach(x => EyeRenderer.Record(organism.Position + x.RotatedPosition, 0.1f));
+            organism.Body.Nodes.Where(x => x.VertexType == BodyVertexType.Muscle).ToList().ForEach(x => MuscleRenderer.Record(organism.Position + x.RotatedPosition, 0.1f));
+            organism.Body.Nodes.Where(x => x.VertexType == BodyVertexType.Empty).ToList().ForEach(x => EmptyRenderer.Record(organism.Position + x.RotatedPosition, 0.05f));
+            HullRenderer.Record(organism.Position, organism.Radius);
         }
 
         public void Render()
@@ -69,7 +68,7 @@ namespace ArtificialLifeSim.Renderer
             EmptyRenderer.Render();
             MuscleRenderer.Render();
             RotatorRenderer.Render();
-            PolygonRenderer.Render();
+            //PolygonRenderer.Render();
 
             // shader.Activate();
             // GL.BindBufferRange(BufferTargetARB.ArrayBuffer, 0, vertexBuffer, IntPtr.Zero, 1024 * OrganismLimits.MaxVertexCount * 2 * sizeof(float));

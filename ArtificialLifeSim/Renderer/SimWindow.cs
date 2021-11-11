@@ -4,8 +4,8 @@
 // https://opensource.org/licenses/MIT
 
 using System;
-using System.Numerics;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;

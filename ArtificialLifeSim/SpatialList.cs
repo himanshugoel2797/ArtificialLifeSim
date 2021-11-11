@@ -1,7 +1,7 @@
-﻿using System;
+﻿using OpenTK.Mathematics;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,8 +9,8 @@ namespace ArtificialLifeSim
 {
     interface IPosition
     {
-        Vector2 Position { get; set; }
-        float Radius { get; set; }
+        Vector2 Position { get; }
+        float Radius { get; }
     }
 
     class SpatialList<T> where T : IPosition
@@ -30,10 +30,8 @@ namespace ArtificialLifeSim
 
         public void Add(T item)
         {
-            var x_coord = (int)((float)(item.Position.X * GridSide) / WorldSide) % GridSide;
-            var y_coord = (int)((float)(item.Position.Y * GridSide) / WorldSide) % GridSide;
-            if (y_coord < 0) y_coord += GridSide;
-            if (x_coord < 0) x_coord += GridSide;
+            var x_coord = (int)((float)(item.Position.X * GridSide) / WorldSide);
+            var y_coord = (int)((float)(item.Position.Y * GridSide) / WorldSide);
 
             if (grid[x_coord, y_coord] == null) grid[x_coord, y_coord] = new List<T>();
             grid[x_coord, y_coord].Add(item);
@@ -43,23 +41,24 @@ namespace ArtificialLifeSim
         public T[] SearchNeighborhood(T src, Vector2 position, float radSq)
         {
             List<T> results = new List<T>();
-            var x_coord = (int)((float)(position.X * GridSide) / WorldSide) % GridSide;
-            var y_coord = (int)((float)(position.Y * GridSide) / WorldSide) % GridSide;
+            var x_coord = (int)((float)(position.X * GridSide) / WorldSide);
+            var y_coord = (int)((float)(position.Y * GridSide) / WorldSide);
 
             float rad = MathF.Sqrt(radSq);
 
-            for (int x0 = (GridSide + x_coord - 1); x0 < (GridSide + x_coord + 1); x0++)
-                for (int y0 = GridSide + y_coord - 1; y0 < (GridSide + y_coord + 1); y0++)
+            for (int x0 = x_coord - 1; x0 < x_coord + 1; x0++)
+                for (int y0 = y_coord - 1; y0 < y_coord + 1; y0++)
                 {
-                    int x = x0 % GridSide;
-                    int y = y0 % GridSide;
+                    if (x0 < 0 | y0 < 0) continue;
+                    if (x0 >= GridSide | y0 >= GridSide) continue;
+
+                    int x = x0;
+                    int y = y0;
                     if (grid[x, y] != null)
-                    {
-                        results.AddRange(grid[x, y].Where(x => !x.Equals(src) && (x.Position - position).LengthSquared() <= MathF.Pow(rad + x.Radius, 2)));
-                    }
+                        results.AddRange(grid[x, y].Where(x => !x.Equals(src) && (x.Position - position).LengthSquared <= MathF.Pow(rad + x.Radius, 2)));
                 }
 
-            return results.OrderBy(x => (x.Position - position).LengthSquared()).ToArray();
+            return results.OrderBy(x => (x.Position - position).LengthSquared).ToArray();
         }
 
         public IEnumerator<T> GetEnumerator()

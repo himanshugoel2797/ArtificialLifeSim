@@ -3,8 +3,8 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
+using OpenTK.Mathematics;
 using System;
-using System.Numerics;
 
 namespace ArtificialLifeSim.Renderer {
     class FoodRenderer{

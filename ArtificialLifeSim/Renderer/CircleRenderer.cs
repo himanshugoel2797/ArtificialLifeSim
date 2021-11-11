@@ -4,14 +4,14 @@
 // https://opensource.org/licenses/MIT
 
 using System;
-using System.Numerics;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace ArtificialLifeSim.Renderer {
     class CircleRenderer : IDisposable{
 
-        const int BufferLen = 1024000 * OrganismLimits.MaxVertexCount * 4 * sizeof(float);
+        const int BufferLen = 1024000 * 32 * 4 * sizeof(float);
 
         Shader shader;
         BufferHandle circleGeom;

@@ -4,15 +4,15 @@
 // https://opensource.org/licenses/MIT
 
 using System;
-using System.Numerics;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 using Matrix22 = OpenTK.Mathematics.Matrix2;
 
 namespace ArtificialLifeSim.Renderer {
     class PolygonRenderer : IDisposable{
 
-        const int BufferLen = 102400 * OrganismLimits.MaxVertexCount * 4 * sizeof(float);
+        const int BufferLen = 102400 * 32 * 4 * sizeof(float);
 
         Shader shader;
         BufferHandle vertexBuffer;
