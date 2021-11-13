@@ -10,5 +10,7 @@ namespace ArtificialLifeSim
     interface IPosition
     {
         Vector2 Position { get; }
+        Vector2 Min { get; }
+        Vector2 Max { get; }
     }
 }

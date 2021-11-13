@@ -19,8 +19,8 @@ namespace ArtificialLifeSim.Renderer {
         public int RefSizeY = 1024;
         public bool IsTargetMode = false;
 
-        const float ZoomSpeed = 3f;
-        const float MoveSpeed = 4f;
+        const float ZoomSpeed = 50f;
+        const float MoveSpeed = 50f;
 
         public Vector2 ViewPosition = new Vector2(0, 0);
         public SimWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) 

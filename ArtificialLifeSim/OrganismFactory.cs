@@ -26,28 +26,35 @@ namespace ArtificialLifeSim
 
             Organism organism = new Organism(world);
             organism.BodyChromosome = bodyChromosome;
-            bodyChromosome.Apply(organism);
-            
-            organism.Setup();
+            RefreshOrganism(organism);
+            organism.VisionRange = (float)Utils.RandomDouble(0, 5.0f);
+            organism.EatingRange = (float)Utils.RandomDouble(0, 1.0f);
 
-            organism.Energy = 1;
-            organism.VisionRange = (float)Utils.RandomDouble(0, 10);
-            
             return organism;
         }
 
         public Organism Mate(Organism o0, Organism o1)
         {
             var bodyChromosome = BodyChromosomeFactory.Mate(o0.BodyChromosome, o1.BodyChromosome);
-            BodyChromosomeFactory.Mutate(bodyChromosome);
 
             Organism organism = new Organism(world);
             organism.BodyChromosome = bodyChromosome;
-            bodyChromosome.Apply(organism);
-            organism.Setup();
-            organism.Energy = 1;
+            RefreshOrganism(organism);
+
+            float ratio = (float)Utils.RandomDouble();
+            organism.VisionRange = (ratio * o0.VisionRange + (1 - ratio) * o1.VisionRange);
+            
+            ratio = (float)Utils.RandomDouble();
+            organism.EatingRange = (ratio * o0.EatingRange + (1 - ratio) * o1.EatingRange);
 
             return organism;
+        }
+
+        public void RefreshOrganism(Organism organism)
+        {
+            organism.BodyChromosome.Apply(organism);
+            organism.Setup();
+            organism.Energy = 1;
         }
     }
 }

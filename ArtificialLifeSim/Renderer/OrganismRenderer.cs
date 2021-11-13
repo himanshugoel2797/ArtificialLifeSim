@@ -27,32 +27,58 @@ namespace ArtificialLifeSim.Renderer
         public OrganismRenderer()
         {
             EyeRenderer = new CircleRenderer();
-            EyeRenderer.UpdateColor(new Vector3(0.4f, 0.4f, 0.4f));
+            EyeRenderer.UpdateColor(new Vector3(1.0f, 1.0f, 0.4f));
 
             MouthRenderer = new CircleRenderer();
-            MouthRenderer.UpdateColor(new Vector3(0.4f, 0.4f, 1.0f));
+            MouthRenderer.UpdateColor(new Vector3(1.0f, 0.4f, 1.0f));
 
             EmptyRenderer = new CircleRenderer();
             EmptyRenderer.UpdateColor(new Vector3(0.1f, 0.1f, 0.1f));
 
             StickRenderer = new PolygonRenderer();
-            StickRenderer.UpdateColor(new Vector3(0.5f, 0.5f, 0.0f));
+            StickRenderer.UpdateColor(new Vector3(0.5f, 0.5f, 0.5f));
 
             MuscleRenderer = new PolygonRenderer();
             MuscleRenderer.UpdateColor(new Vector3(1.0f, 0.4f, 0.4f));
         }
 
+        public void Clear()
+        {
+            EyeRenderer.Clear();
+            MouthRenderer.Clear();
+            EmptyRenderer.Clear();
+            StickRenderer.Clear();
+            MuscleRenderer.Clear();
+        }
+
         public void Record(Organism organism)
         {
-            foreach (var stick in organism.Body.Sticks)
-                if (stick.Type == BodyLinkType.None)
-                    StickRenderer.Record(stick.Node0.Position, stick.Node1.Position, 0.1f * stick.Stiffness + 0.05f);
-                else if (stick.Type == BodyLinkType.Muscle)
-                    MuscleRenderer.Record(stick.Node0.Position, stick.Node1.Position, 0.1f * stick.Stiffness + 0.05f);
+            var entity = ObjectPool.EntityPool[organism.Body];
+            foreach (var stick_i in entity.Sticks)
+            {
+                var stick = ObjectPool.StickPool[stick_i];
+                var n0 = ObjectPool.NodePool[stick.Node0];
+                var n1 = ObjectPool.NodePool[stick.Node1];
 
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Mouth).ToList().ForEach(x => MouthRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Eye).ToList().ForEach(x => EyeRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
-            organism.Body.Nodes.Where(x => x.Type == BodyNodeType.Empty).ToList().ForEach(x => EmptyRenderer.Record(x.Position, World.NodeRadius, x.CurrentFriction * 0.5f + 0.5f));
+                if (stick.Type == BodyLinkType.None)
+                    StickRenderer.Record(n0.Position, n1.Position, 0.1f * stick.Stiffness + 0.05f);
+                else if (stick.Type == BodyLinkType.Muscle)
+                    MuscleRenderer.Record(n0.Position, n1.Position, 0.1f * stick.Stiffness + 0.05f);
+            }
+
+            ObjectPool.NodePool.AcquireRef();
+            try
+            {
+                foreach (var x in entity.Nodes.Where(x => ObjectPool.NodePool.Get(x).Type == BodyNodeType.Mouth))
+                    MouthRenderer.Record(ObjectPool.NodePool.Get(x).Position, World.NodeRadius, ObjectPool.NodePool.Get(x).CurrentFriction * 0.5f + 0.5f);
+
+                foreach (var x in entity.Nodes.Where(x => ObjectPool.NodePool.Get(x).Type == BodyNodeType.Eye))
+                    EyeRenderer.Record(ObjectPool.NodePool.Get(x).Position, World.NodeRadius, ObjectPool.NodePool.Get(x).CurrentFriction * 0.5f + 0.5f);
+
+                foreach (var x in entity.Nodes.Where(x => ObjectPool.NodePool.Get(x).Type == BodyNodeType.Empty))
+                    EmptyRenderer.Record(ObjectPool.NodePool.Get(x).Position, World.NodeRadius, ObjectPool.NodePool.Get(x).CurrentFriction * 0.5f + 0.5f);
+            }
+            finally { ObjectPool.NodePool.ReleaseRef(); }
         }
 
         public void Render()

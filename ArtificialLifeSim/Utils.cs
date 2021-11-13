@@ -43,7 +43,35 @@ namespace ArtificialLifeSim
 
         public static float Sin(float time, float period, float offset, float start_val, float end_val)
         {
-            return (start_val - end_val) * MathF.Abs(MathF.Sin(time * period + offset)) + end_val;
+            return (start_val - end_val) * MathF.Abs(MathF.Sin(time * 50 * period + offset * MathF.PI)) + end_val;
+        }
+
+        public static int RouletteWheel(IEnumerable<float> set)
+        {
+            float sel = (float)RandomDouble();
+            float sum = 0;
+            int idx = 0;
+            foreach(var v in set)
+            {
+                sum += v;
+                if (sel <= sum)
+                    return idx;
+                idx++;
+            }
+            throw new Exception("Execution shouldn't reach here!");
+        }
+
+        public static int[] RouletteWheelMany(IEnumerable<float> set, int n)
+        {
+            var sel = new int[n];
+            for (int i = 0; i < sel.Length; i++) sel[i] = -1;
+            for (int i = 0; i < sel.Length; i++)
+            {
+                var cur_sel = RouletteWheel(set);
+                while (sel.Contains(cur_sel)) cur_sel = RouletteWheel(set);
+                sel[i] = cur_sel;
+            }
+            return sel;
         }
 
         public static Triangle GenerateTriangle(double minX = 0, double minY = 0, double maxX = 1, double maxY = 1)

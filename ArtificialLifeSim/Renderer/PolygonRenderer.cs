@@ -14,14 +14,15 @@ namespace ArtificialLifeSim.Renderer
     class PolygonRenderer : IDisposable
     {
 
-        const int BufferLen = 102400 * 32 * 12 * sizeof(float);
+        const int BufferLen = 10240 * 32 * 12 * sizeof(float);
 
         Shader shader;
         BufferHandle vertexBuffer;
         IntPtr[] vertexBufferPtr;
+        int[] pointCnts;
         IntPtr curVbufPtr;
         int vbuf_idx = 0;
-        int pointCnt = 0;
+        int maxPointCnt = BufferLen / (12 * sizeof(float));
         private bool disposedValue;
 
         public PolygonRenderer()
@@ -37,6 +38,7 @@ namespace ArtificialLifeSim.Renderer
             {
                 var ptr = GL.MapNamedBufferRange(vertexBuffer, IntPtr.Zero, 3 * BufferLen, MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit | MapBufferAccessMask.MapCoherentBit);
                 vertexBufferPtr = new IntPtr[] { (IntPtr)ptr, (IntPtr)ptr + BufferLen, (IntPtr)ptr + 2 * BufferLen };
+                pointCnts = new int[3];
                 vbuf_idx = 0;
                 curVbufPtr = vertexBufferPtr[vbuf_idx];
             }
@@ -45,6 +47,13 @@ namespace ArtificialLifeSim.Renderer
         internal void UpdateSizeScale(float v, float w)
         {
             GL.ProgramUniform2f(shader.ProgramID, 4, v, w);
+        }
+
+        public void Clear()
+        {
+            //vbuf_idx = (vbuf_idx + 1) % 3;
+            curVbufPtr = vertexBufferPtr[vbuf_idx];
+            pointCnts[vbuf_idx] = 0;
         }
 
         public void Record(Vector2 p0, Vector2 p1, float width = 0.1f)
@@ -76,7 +85,9 @@ namespace ArtificialLifeSim.Renderer
                 ptr[10] = c1.X;
                 ptr[11] = c1.Y;
                 curVbufPtr += 12 * sizeof(float);
-                pointCnt++;
+                pointCnts[vbuf_idx]++;
+                if (pointCnts[vbuf_idx] >= maxPointCnt)
+                    throw new Exception();
             }
         }
 
@@ -84,11 +95,11 @@ namespace ArtificialLifeSim.Renderer
         {
             shader.Activate();
             GL.BindBufferRange(BufferTargetARB.ShaderStorageBuffer, 0, vertexBuffer, (IntPtr)(vbuf_idx * BufferLen), BufferLen);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, pointCnt * 6);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, pointCnts[vbuf_idx] * 6);
 
-            pointCnt = 0;
             vbuf_idx = (vbuf_idx + 1) % 3;
             curVbufPtr = vertexBufferPtr[vbuf_idx];
+            pointCnts[vbuf_idx] = 0;
         }
 
         public void UpdateView(float zoom, Vector2 center)

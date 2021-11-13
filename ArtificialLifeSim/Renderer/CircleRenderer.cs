@@ -11,24 +11,27 @@ using OpenTK.Mathematics;
 namespace ArtificialLifeSim.Renderer {
     class CircleRenderer : IDisposable{
 
-        const int BufferLen = 1024000 * 32 * 4 * sizeof(float);
+        int BufferLen;
 
         Shader shader;
         BufferHandle circleGeom;
         BufferHandle vertexBuffer;
         IntPtr[] vertexBufferPtr;
+        int[] pointCnts;
         IntPtr curVbufPtr;
         int circleGeomLen = 0;
         int vbuf_idx = 0;
-        int pointCnt = 0;
+        int maxPointCnt = 0;
         private bool disposedValue;
 
-        public CircleRenderer() {
+        public CircleRenderer(int buf_size = 10240) {
             shader = new Shader("Shaders/circle.vert", "Shaders/circle.frag");
 
+            BufferLen = buf_size * 32 * 4 * sizeof(float);
+            maxPointCnt = buf_size * 32;
             circleGeom = GL.CreateBuffer();
             {
-                int circleSteps = 50;
+                int circleSteps = 10;
                 float[] circle_geom = new float[circleSteps * 3 * 2];
 
                 float angleStep = (float)(2 * Math.PI / circleSteps);
@@ -54,6 +57,7 @@ namespace ArtificialLifeSim.Renderer {
             {
                 var ptr = GL.MapNamedBufferRange(vertexBuffer, IntPtr.Zero, 3 * BufferLen, MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit | MapBufferAccessMask.MapCoherentBit);
                 vertexBufferPtr = new IntPtr[] {(IntPtr)ptr, (IntPtr)ptr + BufferLen, (IntPtr)ptr + 2 * BufferLen};
+                pointCnts = new int[3];
                 vbuf_idx = 0;
                 curVbufPtr = vertexBufferPtr[vbuf_idx];
             }
@@ -62,6 +66,13 @@ namespace ArtificialLifeSim.Renderer {
         internal void UpdateSizeScale(float v, float w)
         {
             GL.ProgramUniform2f(shader.ProgramID, 4, v, w);
+        }
+
+        public void Clear()
+        {
+            //vbuf_idx = (vbuf_idx + 1) % 3;
+            curVbufPtr = vertexBufferPtr[vbuf_idx];
+            pointCnts[vbuf_idx] = 0;
         }
 
         public void Record(Vector2 position, float radius, float opacity = 0.5f){
@@ -73,18 +84,20 @@ namespace ArtificialLifeSim.Renderer {
                 ptr[3] = opacity;
                 curVbufPtr += 4 * sizeof(float);
             }
-            pointCnt++;
+            pointCnts[vbuf_idx]++;
+            if (pointCnts[vbuf_idx] >= maxPointCnt)
+                throw new Exception();
         }
 
         public void Render(){
             shader.Activate();
             GL.BindBufferRange(BufferTargetARB.ShaderStorageBuffer, 0, vertexBuffer, (IntPtr)(vbuf_idx * BufferLen), BufferLen);
             GL.BindBufferRange(BufferTargetARB.ShaderStorageBuffer, 1, circleGeom, IntPtr.Zero, circleGeomLen * sizeof(float));
-            GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, circleGeomLen / 2, pointCnt);
+            GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, circleGeomLen / 2, pointCnts[vbuf_idx]);
 
-            pointCnt = 0;
             vbuf_idx = (vbuf_idx + 1) % 3;
             curVbufPtr = vertexBufferPtr[vbuf_idx];
+            pointCnts[vbuf_idx] = 0;
         }
 
         public void UpdateView(float zoom, Vector2 center){

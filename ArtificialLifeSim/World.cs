@@ -14,6 +14,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Mathematics;
 using ArtificialLifeSim.Physics;
+using System.Threading;
 
 namespace ArtificialLifeSim
 {
@@ -23,8 +24,7 @@ namespace ArtificialLifeSim
 
         public int Side { get; private set; }
         public List<Organism> Organisms { get; set; }
-        public ConcurrentQueue<Organism> NewOrganisms { get; set; }
-        public SpatialGrid<Food> Food { get; set; }
+        public SpatialHashMap<Food> Food { get; set; }
         public PhysicsWorld Physics { get; set; }
         public OrganismFactory OrganismFactory { get; set; }
 
@@ -33,7 +33,16 @@ namespace ArtificialLifeSim
         public FoodRenderer FoodRenderer { get; set; }
         public OrganismRenderer OrganismRenderer { get; set; }
 
-        public World(int side, int initialOrganisms, int initialFood)
+        public int ElitismCount { get; set; } = 10;
+        public int NewChildren { get; set; } = 10;
+        public int PopulationCount { get; set; } = 50;
+        public int FoodCount { get; set; } = 10000;
+
+        public Thread SimThread { get; set; }
+        public bool Pause { get; set; }
+
+
+        public World(int side)
         {
             #region Renderer Setup
             var nativeWindowSettings = new NativeWindowSettings()
@@ -43,7 +52,7 @@ namespace ArtificialLifeSim
                 Flags = ContextFlags.ForwardCompatible,
             };
             Window = new SimWindow(GameWindowSettings.Default, nativeWindowSettings);
-            Window.VSync = VSyncMode.Off;
+            Window.ZoomState = side / 4.0f;
             GL.Enable(EnableCap.ProgramPointSize);
             GL.Enable(EnableCap.LineSmooth);
             GL.Enable(EnableCap.Blend);
@@ -52,7 +61,7 @@ namespace ArtificialLifeSim
             GL.BindVertexArray(GL.GenVertexArray());
             GL.LineWidth(50);
 
-            FoodRenderer = new FoodRenderer();
+            FoodRenderer = new FoodRenderer(FoodCount);
             OrganismRenderer = new OrganismRenderer();
             #endregion
 
@@ -60,18 +69,23 @@ namespace ArtificialLifeSim
             OrganismFactory = new OrganismFactory(this);
             Physics = new PhysicsWorld(Side);
             Organisms = new List<Organism>();
-            NewOrganisms = new ConcurrentQueue<Organism>();
-            Food = new SpatialGrid<Food>(side, side: 32);
+            Food = new SpatialHashMap<Food>(side, ObjectPool.FoodPool);
 
-            for (int i = 0; i < initialOrganisms; i++)
+            for (int i = 0; i < PopulationCount; i++)
             {
                 var o = OrganismFactory.CreateOrganism();
                 Organisms.Add(o);
                 Physics.AddEntity(o.Body);
             }
 
-            for (int i = 0; i < initialFood; i++)
-                Food.Add(new Food(Utils.RandomVector2(0, side), (float)Utils.RandomDouble(0.01, 1.0)));
+            for (int i = 0; i < FoodCount; i++)
+            {
+                var food = new Food(Utils.RandomVector2(0, side), (float)Utils.RandomDouble(0.01, 1.0));
+                Food.Add(ObjectPool.FoodPool.Allocate(food));
+            }
+
+            SimThread = new Thread(UpdateTask);
+            SimThread.Start();
 
             Window.UpdateFrame += Update;
             Window.RenderFrame += Render;
@@ -81,20 +95,95 @@ namespace ArtificialLifeSim
         private void Render(FrameEventArgs obj)
         {
             GL.Clear(ClearBufferMask.ColorBufferBit);
-            foreach (Food f in Food)
-                FoodRenderer.Record(f);
 
-            foreach (Organism o in Organisms)
-                OrganismRenderer.Record(o);
+            lock (FoodRenderer)
+                FoodRenderer.Render();
+            lock (OrganismRenderer)
+                OrganismRenderer.Render();
 
-            FoodRenderer.Render();
-            OrganismRenderer.Render();
             Window.SwapBuffers();
+        }
+
+        private void UpdateTask()
+        {
+            while (!Window.IsExiting)
+            {
+                if (Tick < 100)
+                {
+                    if (!Pause)
+                        Run();
+
+                    lock (FoodRenderer)
+                    {
+                        FoodRenderer.Clear();
+                        foreach (int f in Food)
+                            FoodRenderer.Record(ObjectPool.FoodPool[f]);
+                    }
+
+                    lock (OrganismRenderer)
+                    {
+                        OrganismRenderer.Clear();
+                        foreach (Organism o in Organisms)
+                            OrganismRenderer.Record(o);
+                    }
+                }
+                else
+                {
+                    //Score organisms
+                    var energy_sum = Organisms.Sum(a => a.Energy);
+                    var energy_set = Organisms.Select(a => a.Energy / energy_sum);
+                    var scored = Organisms.Zip(energy_set).OrderByDescending(a => a.Second).ToArray();
+                    energy_set = scored.Select(a => a.Second);
+                    var scored_orgs = scored.Select(a => a.First).ToArray();
+
+                    //Create new generation
+                    var elite_orgs = scored_orgs.Take(ElitismCount).ToArray();
+                    var n_children = new Organism[PopulationCount - ElitismCount - NewChildren];
+                    for (int i = 0; i < n_children.Length; i++)
+                    {
+                        var parents = Utils.RouletteWheelMany(energy_set, 2);
+                        n_children[i] = OrganismFactory.Mate(Organisms[parents[0]], Organisms[parents[1]]);
+                    }
+
+                    var new_orgs = new Organism[NewChildren];
+                    for (int i = 0; i < new_orgs.Length; i++)
+                        new_orgs[i] = OrganismFactory.CreateOrganism();
+
+                    //Remove previous generation
+                    foreach (var a in Organisms) a.Dispose();
+                    Organisms.Clear();
+                    Physics.Clear();
+
+                    //Refresh surviving organisms
+                    foreach (var e in elite_orgs) OrganismFactory.RefreshOrganism(e);
+
+                    //Add new generation
+                    var n_org_list = new List<Organism>(PopulationCount);
+                    n_org_list.AddRange(elite_orgs);
+                    n_org_list.AddRange(n_children);
+                    n_org_list.AddRange(new_orgs);
+                    foreach (var o in n_org_list) Physics.AddEntity(o.Body);
+                    Organisms = n_org_list;
+
+                    //Populate food
+                    Food.Clear();
+                    ObjectPool.FoodPool.Clear();
+                    for (int i = 0; i < FoodCount; i++)
+                    {
+                        var food = new Food(Utils.RandomVector2(0, Side), (float)Utils.RandomDouble(0.01, 1.0));
+                        Food.Add(ObjectPool.FoodPool.Allocate(food));
+                    }
+
+                    //Restart simulation
+                    Tick = 0;
+                }
+            }
         }
 
         private void Update(FrameEventArgs obj)
         {
-            Run();
+            //Console.Clear();
+
             Window.ZoomState = Math.Min(Window.ZoomState, Side / 2);
             Window.ZoomState = Math.Max(Window.ZoomState, 1);
 
@@ -112,39 +201,35 @@ namespace ArtificialLifeSim
             FoodRenderer.UpdateSizeScale(Window.XScale, Window.YScale);
             OrganismRenderer.UpdateSizeScale(Window.XScale, Window.YScale);
 
+            Pause ^= Window.IsKeyPressed(OpenTK.Windowing.GraphicsLibraryFramework.Keys.P);
+            Window.Title = $"Tick: {Tick}";
             //Window.Title = $"Health: {Organism.HighestHealth:F3}, Energy: {Organism.HighestEnergy:F3}, Age: {PreviousHighestAge:F3}, Reproduction Cost: {Organism.HighestParameters.EnergyConsumptionForReproduction:F3}, Reproduction Level: {Organism.HighestParameters.NecessaryEnergyLevelForReproduction:F3}, Reproduction Age: {Organism.HighestParameters.NecessaryEnergyDurationForReproduction:F3}, Asexual Reproduction Chance: {Organism.HighestParameters.AsexualReproductionChance:F3}";
         }
 
-        public void AddOrganism(Organism organism)
+        public int[] GetFoodInContext(Organism o, Vector2 position, bool eating)
         {
-            NewOrganisms.Enqueue(organism);
-        }
-
-        public Node[] GetOrganismsInContext(Organism o, Node n)
-        {
-            return Physics.Nodes.SearchNeighborhood(n, n.Position, o.VisionRange);
-        }
-
-        public Food[] GetFoodInContext(Organism o, Vector2 position)
-        {
-            return Food.SearchNeighborhood(null, position, o.VisionRange + NodeRadius);
+            if (eating)
+                return Food.SearchNeighborhood(position, o.EatingRange + NodeRadius);
+            else
+                return Food.SearchNeighborhood(position, o.VisionRange + NodeRadius);
         }
 
         public void Run()
         {
             // Update organisms
             Parallel.ForEach(Organisms, (o) => o.Update(Tick));
+            //foreach (Organism o in Organisms) o.Update(Tick);
 
             // Process food consumption
-            Food.RemoveAll(x => x.Energy == 0);
+            Food.FreeAll(x => ObjectPool.FoodPool[x].Energy == 0);
 
             //Remove dead organisms
-            Organisms.RemoveAll(x =>
-            {
-                var cond = x.Energy <= 0;
-                if (cond) Physics.RemoveEntity(x.Body);
-                return cond;
-            });
+            //Organisms.RemoveAll(x =>
+            //{
+            //    var cond = x.Energy <= 0;
+            //    if (cond) Physics.RemoveEntity(x.Body);
+            //    return cond;
+            //});
 
             //Run physics step
             Physics.Update((float)Tick);
